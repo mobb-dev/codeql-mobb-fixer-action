@@ -1,12 +1,9 @@
-name: "cx-mobb-fixer-action"
-description: "Mobb automatic vulnerability fixer action for Checkmarx One"
+name: "codeql-mobb-fixer-action"
+description: "Mobb automatic vulnerability fixer action for GitHub CodeQL analysis"
 branding:
   icon: aperture
   color: blue
 inputs:
-  cx-api-token:
-    description: "your Checkmarx credentials"
-    required: true
   mobb-api-token:
     description: "Mobb API token"
     required: true
@@ -23,21 +20,7 @@ runs:
     - uses: actions/setup-node@v3.6.0
       with:
         node-version: 18
-
-    # This step extracts the Head SHA and stores it in the 'head-sha' variable                
-    - id: env 
-      name: Set Up Environment
-      run: |
         
-        OUT=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.sha')
-        echo $OUT
-        echo "head-sha=$OUT" >> $GITHUB_OUTPUT
-        RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
-        echo RUN_PATH: $RUN_PATH
-        echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
-      shell: bash -l {0}
-
-
     # Displays status in the PR that this action is in 'pending' status
     - uses: guibranco/github-status-action-v2@v1.1.13
       with:
@@ -48,31 +31,88 @@ runs:
         sha: ${{steps.env.outputs.head-sha}}
         description: "Mobb fix analysis in progress..." 
 
-    # Extract the scan ID from the Checkmarx comment and use it to generate a Checkmarx json report
-    - name: Get Checkmarx Report
+    # This step extracts the Head SHA and stores it in the 'head-sha' variable                
+    - id: env 
+      name: Set Up Environment
       run: |
-        SCAN_ID=$(echo "$COMMENT" | sed -n 's/.*scans?id=\([^&]*\).*/\1/p')
-        wget https://github.com/Checkmarx/ast-cli/releases/download/2.1.2/ast-cli_linux_x64.tar.gz -O checkmarx.tar.gz
-        tar -xf checkmarx.tar.gz
-        ./cx configure set --prop-name cx_apikey --prop-value ${{ inputs.cx-api-token }}
-        ./cx results show --output-name report --report-format json --scan-id $SCAN_ID
-      env:
-        COMMENT: ${{ github.event.comment.body }}
+
+        # Show PR Context, as this action is only designed to run during a PR. 
+        echo "PR Context:"
+        echo "$PR_CONTEXT"
+
+        # Show head_sha of the PR
+        head_sha=${{ github.event.workflow_run.head_sha }}
+        echo "head_sha=$head_sha"
+        
+        
+        # Check all availableCodeQL analyses
+        URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
+        echo "analyses list URL=$URL"
+        response=$(curl -H "Authorization: Bearer $GITHUB_TOKEN" $URL)
+        echo length of response=$#{response}
+        
+        # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
+        echo "Extract all CodeQL Analyses IDs that has a matching head_sha to the PR"
+        ids=$(echo "$response" | jq -r --arg sha "$head_sha" '.[] | select(.commit_sha == $sha) | .id')
+        echo "Matching analyses ids=$ids"
+        
+        if [ -z "$ids" ]; then
+          echo "Error: No matching IDs found for the given head SHA $head_sha." >&2
+          exit 1
+        fi
+
+        echo Initialize sarif_output.json with the base structure
+        echo '{
+          "runs": [],
+          "version": "2.1.0"
+        }' > sarif_output.json
+        cat sarif_output.json
+        
+        # Loop through each ID
+        for id in $ids; do
+          echo "Found Analysis ID: $id"
+        
+          # Fetch the SARIF response
+          sarif_response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
+          echo length of sarif_response=${#sarif_response}
+          # echo sarif content:
+          # echo $sarif_response | jq '.'
+
+          # Save the response to a temporary file
+          echo "$sarif_response" > current_sarif.json
+          
+          # Combine the current sarif_output.json with the new SARIF response
+          jq -s '{"version": "2.1.0", "runs": (.[0].runs + .[1].runs)}' sarif_output.json current_sarif.json > temp_sarif_output.json
+        
+          # Move the temporary file to sarif_output.json
+          mv temp_sarif_output.json sarif_output.json
+          echo sarif_output.json size=$(stat -c%s sarif_output.json)
+        done
+
+        # Print directory
+        ls -l
+
       shell: bash -l {0}
+      env:
+        PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - id: run-npx-mobb-dev
       name: Mobb - Generate Autofix
       run: |
+      
         REPO=$(git remote get-url origin)
         REPO=${REPO%".git"}
-        SCANNER=checkmarx
-        PR_NUMBER=${{ github.event.issue.number }}
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
+        SCANNER=codeql
+        PR_NUMBER=$(echo $PR_CONTEXT | jq '.[0].number')
+        GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
+        #GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
+        GITHUB_SHA=$head_sha
         echo REPO: $REPO
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
-        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f report.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER)
+        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ secrets.MOBB_API_TOKEN }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ secrets.GITHUB_TOKEN }} --scanner $SCANNER)
         RETVAL=$?
         if [ $RETVAL -ne 0 ]; then
           exit $RETVAL
@@ -80,6 +120,7 @@ runs:
         OUT=$(echo $OUT | tr '\n' ' ')
         echo "fix-report-url=$OUT" >> $GITHUB_OUTPUT
         echo "Mobb URL: $OUT"
+
       shell: bash -l {0}
 
     # Publish the Mobb fix report link in the PR
