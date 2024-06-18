@@ -21,16 +21,6 @@ runs:
       with:
         node-version: 18
         
-    # Displays status in the PR that this action is in 'pending' status
-    - uses: guibranco/github-status-action-v2@v1.1.13
-      with:
-        authToken: ${{ inputs.github-token }}
-        context: "Mobb Fix Analysis"
-        state: "pending"
-        target_url: ${{ steps.env.outputs.action-run-path }}
-        sha: ${{steps.env.outputs.head-sha}}
-        description: "Mobb fix analysis in progress..." 
-
     # This step extracts the Head SHA and stores it in the 'head-sha' variable                
     - id: env 
       name: Set Up Environment
@@ -43,6 +33,19 @@ runs:
         # Show head_sha of the PR
         head_sha=${{ github.event.workflow_run.head_sha }}
         echo "head_sha=$head_sha"
+        echo "head-sha=$OUT" >> $GITHUB_OUTPUT
+        
+    # Displays status in the PR that this action is in 'pending' status
+    - uses: guibranco/github-status-action-v2@v1.1.13
+      with:
+        authToken: ${{ inputs.github-token }}
+        context: "Mobb Fix Analysis"
+        state: "pending"
+        target_url: ${{ steps.env.outputs.action-run-path }}
+        sha: ${{steps.env.outputs.head-sha}}
+        description: "Mobb fix analysis in progress..." 
+
+    
         
         
         # Check all availableCodeQL analyses
