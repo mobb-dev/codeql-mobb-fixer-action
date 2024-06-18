@@ -34,7 +34,8 @@ runs:
         head_sha=${{ github.event.workflow_run.head_sha }}
         echo "head_sha=$head_sha"
         echo "head-sha=$OUT" >> $GITHUB_OUTPUT
-        
+      shell: bash -l {0}
+
     # Displays status in the PR that this action is in 'pending' status
     - uses: guibranco/github-status-action-v2@v1.1.13
       with:
