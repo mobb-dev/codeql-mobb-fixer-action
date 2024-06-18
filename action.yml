@@ -95,7 +95,7 @@ runs:
       shell: bash -l {0}
       env:
         PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
 
     - id: run-npx-mobb-dev
       name: Mobb - Generate Autofix
@@ -112,7 +112,7 @@ runs:
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
-        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ secrets.MOBB_API_TOKEN }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ secrets.GITHUB_TOKEN }} --scanner $SCANNER)
+        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.MOBB_API_TOKEN }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.GITHUB_TOKEN }} --scanner $SCANNER)
         RETVAL=$?
         if [ $RETVAL -ne 0 ]; then
           exit $RETVAL
