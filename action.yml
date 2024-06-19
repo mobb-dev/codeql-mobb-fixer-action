@@ -62,11 +62,11 @@ runs:
         echo "analyses list: $response"
         # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
         echo "Extract all CodeQL Analyses IDs that has a matching head_sha to the PR"
-        ids=$(echo "$response" | jq -r --arg sha "$head_sha" '.[] | select(.commit_sha == $sha) | .id')
+        ids=$(echo "$response" | jq -r --arg sha "${{steps.env.outputs.head-sha}}" '.[] | select(.commit_sha == $sha) | .id')
         echo "Matching analyses ids=$ids"
         
         if [ -z "$ids" ]; then
-          echo "Error: No matching IDs found for the given head SHA $head_sha." >&2
+          echo "Error: No matching IDs found for the given head SHA ${{steps.env.outputs.head-sha}}." >&2
           exit 1
         fi
 
@@ -116,7 +116,7 @@ runs:
         PR_NUMBER=$(echo $PR_CONTEXT | jq '.[0].number')
         GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
         #GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
-        GITHUB_SHA=$head_sha
+        GITHUB_SHA=${{steps.env.outputs.head-sha}}
         echo REPO: $REPO
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
