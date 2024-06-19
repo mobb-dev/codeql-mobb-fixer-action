@@ -48,7 +48,9 @@ runs:
 
     
         
-        
+    - id: run-codeql-generate-report
+      name: CodeQL Generate Report
+      run: |    
         # Check all availableCodeQL analyses
         URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
         echo "analyses list URL=$URL"
