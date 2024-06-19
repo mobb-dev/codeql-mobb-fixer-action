@@ -57,7 +57,7 @@ runs:
         # Check all availableCodeQL analyses
         URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
         echo "analyses list URL=$URL"
-        response=$(curl -H "Authorization: Bearer $GITHUB_TOKEN" $URL)
+        response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
         echo length of code-scanning analyses list=$#{response}
         echo "analyses list: $response"
         # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
@@ -82,7 +82,7 @@ runs:
           echo "Found Analysis ID: $id"
         
           # Fetch the SARIF response
-          sarif_response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
+          sarif_response=$(curl -s -H "Authorization: Bearer ${{ inputs.github-token }}" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
           echo length of sarif_response=${#sarif_response}
           # echo sarif content:
           # echo $sarif_response | jq '.'
