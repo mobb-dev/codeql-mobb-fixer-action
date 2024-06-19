@@ -58,8 +58,8 @@ runs:
         URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
         echo "analyses list URL=$URL"
         response=$(curl -H "Authorization: Bearer $GITHUB_TOKEN" $URL)
-        echo length of response=$#{response}
-        
+        echo length of code-scanning analyses list=$#{response}
+        echo "analyses list: $response"
         # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
         echo "Extract all CodeQL Analyses IDs that has a matching head_sha to the PR"
         ids=$(echo "$response" | jq -r --arg sha "$head_sha" '.[] | select(.commit_sha == $sha) | .id')
