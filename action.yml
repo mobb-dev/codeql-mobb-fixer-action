@@ -121,7 +121,7 @@ runs:
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
-        # npx mobbdev@latest add-scm-token --scm-type GitHub --url $REPO --token ${{ inputs.github-token }} --api-key ${{ inputs.mobb-api-token }} --username $GITHUB_ACTOR
+        npx mobbdev@latest add-scm-token --scm-type GitHub --url $REPO --token ${{ inputs.github-token }} --api-key ${{ inputs.mobb-api-token }} --username $GITHUB_ACTOR
         OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER)
         RETVAL=$?
         if [ $RETVAL -ne 0 ]; then
