@@ -33,7 +33,7 @@ runs:
         # Show head_sha of the PR
         head_sha=${{ github.event.workflow_run.head_sha }}
         echo "head_sha=$head_sha"
-        echo "head-sha=$OUT" >> $GITHUB_OUTPUT
+        echo "head-sha=$head_sha" >> $GITHUB_OUTPUT
         RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
         echo RUN_PATH: $RUN_PATH
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
