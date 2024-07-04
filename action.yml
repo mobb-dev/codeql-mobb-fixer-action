@@ -112,7 +112,7 @@ runs:
         SCANNER=codeql
         PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
         # GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
+        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
         echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
         echo REPO: $REPO
