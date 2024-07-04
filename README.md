@@ -19,30 +19,26 @@ Create a file under the path `.github/workflow/mobb.yml`.
 A sample content of the workflow file: 
 
 ```yaml
-name: Handle CodeQL Scan Results
-
+name: Mobb fix from CodeQL reports
 on:
   workflow_run:
-    workflows: ["CodeQL"]
+    workflows: ["CodeQL"] # This workflow is triggered when the name specified here is triggered. In CodeQL Default Code Scanning Setup, this name is "CodeQL", if you are using CodeQL Advanced Setup, you may need to change this if you have a different workflow name. 
     types:
       - completed
 jobs:
   handle_codeql_scan:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && toJSON(github.event.workflow_run.pull_requests) != '[]' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_branch,'refs/pull') }} # Check if workflow is a Pull Request Event and not a Push event
     permissions:
-      contents: read
       pull-requests: write
       security-events: write
       statuses: write
-
+      contents: write
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        
-      - name: Run Mobb GH Fixer CodeQL results
-        if: always()
-        uses: mobb-dev/codeql-mobb-fixer-action@main
+      - uses: mobb-dev/codeql-mobb-fixer-action@main
         with:
           mobb-api-token: ${{ secrets.MOBB_API_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
