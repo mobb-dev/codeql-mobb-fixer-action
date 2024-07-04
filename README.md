@@ -9,10 +9,10 @@ The fixes are presented in 2 formats:
 2. **Full fix report** - A full fix analysis report is available via the "Mobb Fix Report Link" in the status section. The fix report here contains all fixes relevant to the entire repository.
 
 ### Fixes shown in the PR comments 
-![image](https://github.com/mobb-dev/codeql-mobb-fixer-action/assets/5158535/2cdd7fb2-2551-404b-b03c-c8290c9d46db)
+![image](https://github.com/mobb-dev/codeql-mobb-fixer-action/assets/5158535/46161a99-4010-4ef1-90be-a06860f755a9)
 
 ### Full fix report in Mobb UI
-![image](https://github.com/mobb-dev/codeql-mobb-fixer-action/assets/5158535/05d8f498-87fb-4818-aba1-97719d910356)
+![image](https://github.com/mobb-dev/codeql-mobb-fixer-action/assets/5158535/7955c545-e30a-4b61-975c-0b1f1f2e18d8)
 
 
 ## Inputs
