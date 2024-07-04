@@ -26,9 +26,6 @@ runs:
       name: Set Up Environment
       run: |
         env
-        # Show PR Context, as this action is only designed to run during a PR. 
-        echo "PR Context:"
-        echo "$PR_CONTEXT"
 
         # Show head_sha of the PR
         head_sha=${{ github.event.workflow_run.head_sha }}
@@ -54,7 +51,7 @@ runs:
     - id: run-codeql-generate-report
       name: CodeQL Generate Report
       run: |    
-        # Check all availableCodeQL analyses
+        # Check all available CodeQL analyses
         URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
         echo "analyses list URL=$URL"
         response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
@@ -102,9 +99,9 @@ runs:
         ls -l
 
       shell: bash -l {0}
-      env:
-        PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
-        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      #env:
+      #  PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
+      #  GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
 
     - id: run-npx-mobb-dev
       name: Mobb - Generate Autofix
@@ -113,10 +110,11 @@ runs:
         REPO=$(git remote get-url origin)
         REPO=${REPO%".git"}
         SCANNER=codeql
-        PR_NUMBER=$(echo $PR_CONTEXT | jq '.[0].number')
-        GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
-        #GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
+        PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
+        # GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
+        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
+        echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
         echo REPO: $REPO
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
