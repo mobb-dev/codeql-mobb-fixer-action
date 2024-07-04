@@ -1,4 +1,4 @@
-# Mobb Fixer for GitHub Code Security (CodeQL) 
+# Mobb Fixer for GitHub Code Scanning (CodeQL)
 
 ## Overview
 
