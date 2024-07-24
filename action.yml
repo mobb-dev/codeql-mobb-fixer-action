@@ -34,7 +34,18 @@ runs:
         RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
         echo RUN_PATH: $RUN_PATH
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
+
+        #Getting the head-ref
+        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
+        echo "github-head-ref=$GITHUB_HEAD_REF" >> $GITHUB_OUTPUT
+
       shell: bash -l {0}
+
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ steps.env.outputs.github-head-ref }}
+
 
     # Displays status in the PR that this action is in 'pending' status
     - uses: guibranco/github-status-action-v2@v1.1.13
@@ -112,15 +123,17 @@ runs:
         SCANNER=codeql
         PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
         # GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
+        GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
+        COMMIT_HASH=$(git rev-parse $GITHUB_HEAD_REF)
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
         echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
         echo REPO: $REPO
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
+        echo COMMIT_HASH: $COMMIT_HASH
         echo PR_NUMBER: $PR_NUMBER
         # npx mobbdev@latest add-scm-token --scm-type GitHub --url $REPO --token ${{ inputs.github-token }} --api-key ${{ inputs.mobb-api-token }} --username $GITHUB_ACTOR
-        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER)
+        OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER -p .)
         RETVAL=$?
         if [ $RETVAL -ne 0 ]; then
           exit $RETVAL
