@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - uses: mobb-dev/codeql-mobb-fixer-action@v1.0
+      - uses: mobb-dev/codeql-mobb-fixer-action@v1.1
         with:
           mobb-api-token: ${{ secrets.MOBB_API_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
