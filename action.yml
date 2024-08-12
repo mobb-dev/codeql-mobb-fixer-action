@@ -36,8 +36,8 @@ runs:
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
 
         #Getting the head-ref
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
-        echo "github-head-ref=$GITHUB_HEAD_REF" >> $GITHUB_OUTPUT
+        #GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.issue.pull_request.url }} | jq -r '.head.ref')
+        #echo "github-head-ref=$GITHUB_HEAD_REF" >> $GITHUB_OUTPUT
 
       shell: bash -l {0}
 
@@ -125,8 +125,8 @@ runs:
         REPO=${REPO%".git"}
         SCANNER=codeql
         PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
-        # GITHUB_HEAD_REF=$(echo $PR_CONTEXT | jq -r '.[0].head.ref')
-        GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
+        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
+        #GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
         COMMIT_HASH=$(git rev-parse $GITHUB_HEAD_REF)
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
         echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
