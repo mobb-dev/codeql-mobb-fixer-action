@@ -27,10 +27,12 @@ runs:
       run: |
         env
 
-        # Show head_sha of the PR
+        # Getting the head-sha
         head_sha=${{ github.event.workflow_run.head_sha }}
         echo "head_sha=$head_sha"
         echo "head-sha=$head_sha" >> $GITHUB_OUTPUT
+        
+        # Getting the action-run-path
         RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
         echo RUN_PATH: $RUN_PATH
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
@@ -130,7 +132,6 @@ runs:
         REPO=$(git remote get-url origin)
         REPO=${REPO%".git"}
         SCANNER=codeql
-        
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
         PR_NUMBER=${{ steps.env.outputs.pr-number }}
         GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
