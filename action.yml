@@ -7,6 +7,9 @@ inputs:
   mobb-api-token:
     description: "Mobb API token"
     required: true
+  mobb-project-name:
+    description: "Mobb Project Name"
+    required: false
   github-token:
     description: "GitHub token"
     required: true
@@ -142,6 +145,9 @@ runs:
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
+        MobbExecString="npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER -p ."
+        if( ${{ inputs.mobb-project-name}} )
+          MobbExecString=+ "--mobb-project-name  ${{ inputs.mobb-project-name}} "
         
         OUT=$(npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER -p .)
         RETVAL=$?
