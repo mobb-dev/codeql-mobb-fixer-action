@@ -21,6 +21,10 @@ The fixes are presented in 2 formats:
 
 **Required** The Mobb API token to use with the action. [Find out how to get it here](https://docs.mobb.ai/mobb-user-docs/administration/access-tokens). 
 
+## `mobb-project-name`
+
+**Optional** The Mobb Project Name. If unspecified, it will go to "My First Project". 
+
 ## `github-token`
 
 **Required** The GitHub api token to use with the action. Usually available as `${{ secrets.GITHUB_TOKEN }}`.
