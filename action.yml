@@ -145,7 +145,7 @@ runs:
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
-        MobbExecString="npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER -p ."
+        MobbExecString="npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER"
         
         # Check if mobb-project-name exists and append it
         if [ -n "${{ inputs.mobb-project-name }}" ]; then
