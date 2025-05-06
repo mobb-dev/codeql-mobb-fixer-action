@@ -52,7 +52,7 @@ runs:
 
 
           echo PR_NUMBER: $PR_NUMBER
-        elif [[ "$triggering_event" == "dynamic" && "$head_branch" == "*/pull/*" ]]; then
+        elif [[ "$triggering_event" == "dynamic" && $head_branch == refs/pull/* ]]; then
           # Extract the PR number from the head_branch
           echo "Triggering event is a dynamic event, head_branch also contains */pull/* field, extracting PR Number from github.event.workflow_run.head_branch"
           PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
