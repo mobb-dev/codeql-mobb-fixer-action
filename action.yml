@@ -40,8 +40,29 @@ runs:
         echo RUN_PATH: $RUN_PATH
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
 
+        triggering_event=${{ github.event.workflow_run.event }}
+        head_branch=${{ github.event.workflow_run.head_branch }}
+
+        echo "triggering_event=$triggering_event"
+        echo "head_branch=$head_branch"
+
+        if [[ "$triggering_event" == "pull_request" ]]; then
+          echo "Triggering event is a pull request, extracting PR Number from github.event.pull_request.number"
+          PR_NUMBER=$(jq -r '.workflow_run.pull_requests[0].number' "$GITHUB_EVENT_PATH")
+
+
+          echo PR_NUMBER: $PR_NUMBER
+        elif [[ "$triggering_event" == "dynamic" && $head_branch == refs/pull/* ]]; then
+          # Extract the PR number from the head_branch
+          echo "Triggering event is a dynamic event, head_branch also contains */pull/* field, extracting PR Number from github.event.workflow_run.head_branch"
+          PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
+          echo PR_NUMBER: $PR_NUMBER
+        else
+          echo "Error: Unable to determine PR number from the triggering event. Please check if the triggering event is a PR."
+          exit 1
+        fi
+
         #Getting the pr-number
-        PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
         echo PR_NUMBER: $PR_NUMBER
         echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
         
@@ -79,9 +100,10 @@ runs:
         response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
         echo length of code-scanning analyses list=$#{response}
         echo "analyses list: $response"
-        # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
-        echo "Extract all CodeQL Analyses IDs that has a matching head_sha to the PR"
-        ids=$(echo "$response" | jq -r --arg sha "${{steps.env.outputs.head-sha}}" '.[] | select(.commit_sha == $sha) | .id')
+        # Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number
+        echo "Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number"
+        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select(.ref | test("^refs/pull/" + $pr + "/")) | .id')
+
         echo "Matching analyses ids=$ids"
         
         if [ -z "$ids" ]; then
