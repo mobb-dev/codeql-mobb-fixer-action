@@ -20,7 +20,6 @@ on:
 jobs:
   handle_codeql_scan:
     runs-on: ubuntu-latest
-    # && contains(github.event.workflow_run.head_branch,'refs/pull')
     if: ${{ github.event.workflow_run.conclusion == 'success' && (contains(github.event.workflow_run.head_branch, 'refs/pull') || github.event.workflow_run.event == 'pull_request') }}
     permissions:
       pull-requests: write
