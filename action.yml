@@ -47,10 +47,14 @@ runs:
         echo "head_branch=$head_branch"
 
         if [[ "$triggering_event" == "pull_request" ]]; then
-          PR_NUMBER=${{ github.event.workflow_run.pull_requests.number }}
-        elif [[ "$triggering_event" == "dynamic" && "$head_branch" == *"/pull/"* ]]; then
+          echo "Triggering event is a pull request, extracting PR Number from github.event.pull_request.number"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo PR_NUMBER: $PR_NUMBER
+        elif [[ "$triggering_event" == "dynamic" && "$head_branch" == "*/pull/*" ]]; then
           # Extract the PR number from the head_branch
+          echo "Triggering event is a dynamic event, head_branch also contains */pull/* field, extracting PR Number from github.event.workflow_run.head_branch"
           PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
+          echo PR_NUMBER: $PR_NUMBER
         else
           echo "Error: Unable to determine PR number from the triggering event. Please check if the triggering event is a PR."
           exit 1
