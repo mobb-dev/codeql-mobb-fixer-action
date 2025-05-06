@@ -20,7 +20,8 @@ on:
 jobs:
   handle_codeql_scan:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_branch,'refs/pull') }} # Check if workflow is a Pull Request Event and not a Push event
+    # && contains(github.event.workflow_run.head_branch,'refs/pull')
+    if: ${{ github.event.workflow_run.conclusion == 'success' && (contains(github.event.workflow_run.head_branch, 'refs/pull') || github.event.workflow_run.event == 'pull_request') }}
     permissions:
       pull-requests: write
       security-events: write
@@ -29,8 +30,11 @@ jobs:
       issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - uses: mobb-dev/codeql-mobb-fixer-action@v1.1
+        uses: actions/checkout@v4
+      - name: Dump github.event
+        run: cat $GITHUB_EVENT_PATH
+
+      - uses: mobb-dev/codeql-mobb-fixer-action@support-codeql-advanced
         with:
           mobb-api-token: ${{ secrets.MOBB_API_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
