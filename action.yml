@@ -103,7 +103,9 @@ runs:
         # Extract all CodeQL Analyses IDs that has a matching head_sha to the PR
         echo "Extract all CodeQL Analyses IDs that has a matching head_sha to the PR"
         #ids=$(echo "$response" | jq -r --arg sha "${{steps.env.outputs.head-sha}}" '.[] | select(.commit_sha == $sha) | .id')
-        ids=$(echo "$response" | jq -r --arg pr "refs/pull/${{ steps.env.outputs.pr-number }}/merge" '.[] | select(.ref == $pr) | .id')
+        #ids=$(echo "$response" | jq -r --arg pr "refs/pull/${{ steps.env.outputs.pr-number }}/merge" '.[] | select(.ref == $pr) | .id')
+        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select(.ref | test("^refs/pull/" + $pr + "/")) | .id')
+
 
         echo "Matching analyses ids=$ids"
         
