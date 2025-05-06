@@ -48,7 +48,7 @@ runs:
 
         if [[ "$triggering_event" == "pull_request" ]]; then
           PR_NUMBER=${{ github.event.workflow_run.pull_requests.number }}
-        elsif [[ "$triggering_event" == "dynamic" && "$head_branch" == *"/pull/"* ]]; then
+        elif [[ "$triggering_event" == "dynamic" && "$head_branch" == *"/pull/"* ]]; then
           # Extract the PR number from the head_branch
           PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
         else
