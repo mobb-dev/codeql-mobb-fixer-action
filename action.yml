@@ -40,7 +40,7 @@ runs:
         echo RUN_PATH: $RUN_PATH
         echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
 
-        triggering_event=head_sha=${{ github.event.workflow_run.event }}
+        triggering_event=${{ github.event.workflow_run.event }}
         head_branch=${{ github.event.workflow_run.head_branch }}
 
         echo "triggering_event=$triggering_event"
