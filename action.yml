@@ -57,7 +57,6 @@ runs:
         fi
 
         #Getting the pr-number
-        PR_NUMBER=$(echo ${{github.event.workflow_run.head_branch}} | cut --delimiter='/' --fields=3 )
         echo PR_NUMBER: $PR_NUMBER
         echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
         
