@@ -101,9 +101,9 @@ runs:
         echo length of code-scanning analyses list=$#{response}
         echo "analyses list: $response"
         # Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number
-        echo "Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number"
-        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select(.ref | test("^refs/pull/" + $pr + "/")) | .id')
-
+        echo "Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number AND tool.name == CodeQL"
+        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select((.ref | test("^refs/pull/" + $pr + "/")) and (.tool.name == "CodeQL")) | .id')
+  
         echo "Matching analyses ids=$ids"
         
         if [ -z "$ids" ]; then

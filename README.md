@@ -14,7 +14,7 @@ A sample content of the workflow file:
 name: Mobb fix from CodeQL reports
 on:
   workflow_run:
-    workflows: ["CodeQL"] # This workflow is triggered when the name specified here is triggered. In CodeQL Default Code Scanning Setup, this name is "CodeQL", if you are using CodeQL Advanced Setup, you may need to change this if you have a different workflow name. 
+    workflows: ["CodeQL"] # This workflow is triggered when the name specified here is triggered. In CodeQL Default Code Scanning Setup, this name is "CodeQL", if you are using CodeQL Advanced Setup, you may need to change this if you have a different workflow name.
     types:
       - completed
 jobs:
@@ -30,13 +30,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Dump github.event
-        run: cat $GITHUB_EVENT_PATH
-
-      - uses: mobb-dev/codeql-mobb-fixer-action@support-codeql-advanced
+      - uses: mobb-dev/codeql-mobb-fixer-action@v1.1
         with:
           mobb-api-token: ${{ secrets.MOBB_API_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
 ```
 
 ## Inputs
