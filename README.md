@@ -41,6 +41,9 @@ jobs:
         with:
           mobb-api-token: ${{ secrets.MOBB_API_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: specify organization and project
+          # organization-id: "your-org-id"
+          # mobb-project-name: "Your Project Name"
 ```
 
 ### For Pull Requests Only (Legacy)
@@ -80,6 +83,10 @@ jobs:
 ## `mobb-project-name`
 
 **Optional** The Mobb Project Name. If unspecified, it will go to "My First Project". 
+
+## `organization-id`
+
+**Optional** The Mobb Organization ID. If specified, the analysis will be associated with the specified organization.
 
 ## `github-token`
 

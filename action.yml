@@ -10,6 +10,9 @@ inputs:
   mobb-project-name:
     description: "Mobb Project Name"
     required: false
+  organization-id:
+    description: "Mobb Organization ID"
+    required: false
   github-token:
     description: "GitHub token"
     required: true
@@ -230,13 +233,19 @@ runs:
         else
           echo "Building commit analyze command - no PR parameters"
           # For commit runs, use 'analyze' command without --scanner and --pr parameters
-          MobbExecString="npx --yes mobbdev@latest analyze -r $REPO --ref $GITHUB_HEAD_REF --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json"
+          MobbExecString="npx --yes mobbdev@latest analyze -r $REPO --ref $GITHUB_HEAD_REF --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json --ci"
         fi
         
         # Check if mobb-project-name exists and append it
         if [ -n "${{ inputs.mobb-project-name }}" ]; then
           echo "mobb-project-name specified: ${{ inputs.mobb-project-name }}"
           MobbExecString+=" --mobb-project-name \"${{ inputs.mobb-project-name }}\""
+        fi
+        
+        # Check if organization-id exists and append it
+        if [ -n "${{ inputs.organization-id }}" ]; then
+          echo "organization-id specified: ${{ inputs.organization-id }}"
+          MobbExecString+=" --organization-id \"${{ inputs.organization-id }}\""
         fi
         
         # Output the final command string for debugging
