@@ -1,5 +1,5 @@
 name: "codeql-mobb-fixer-action"
-description: "Mobb automatic vulnerability fixer action for GitHub CodeQL analysis"
+description: "Mobb automatic vulnerability fixer action for GitHub CodeQL analysis on pull requests and commits"
 branding:
   icon: aperture
   color: blue
@@ -46,30 +46,70 @@ runs:
         echo "triggering_event=$triggering_event"
         echo "head_branch=$head_branch"
 
+        # Initialize variables
+        PR_NUMBER=""
+        GITHUB_HEAD_REF=""
+        IS_COMMIT_RUN=false
+
         if [[ "$triggering_event" == "pull_request" ]]; then
           echo "Triggering event is a pull request, extracting PR Number from github.event.pull_request.number"
           PR_NUMBER=$(jq -r '.workflow_run.pull_requests[0].number' "$GITHUB_EVENT_PATH")
-
-
           echo PR_NUMBER: $PR_NUMBER
+          
+          #Getting the head-ref for PR
+          GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
+          echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
+          
         elif [[ "$triggering_event" == "dynamic" && $head_branch == refs/pull/* ]]; then
           # Extract the PR number from the head_branch
           echo "Triggering event is a dynamic event, head_branch also contains */pull/* field, extracting PR Number from github.event.workflow_run.head_branch"
           PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
           echo PR_NUMBER: $PR_NUMBER
+          
+          #Getting the head-ref for PR
+          GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
+          echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
+          
+        elif [[ "$triggering_event" == "push" ]]; then
+          echo "Triggering event is a push/commit, using commit SHA and branch"
+          IS_COMMIT_RUN=true
+          PR_NUMBER=""
+          
+          # For push events, use the head_branch directly
+          if [[ "$head_branch" == refs/heads/* ]]; then
+            GITHUB_HEAD_REF=$(echo $head_branch | sed 's/refs\/heads\///')
+          else
+            GITHUB_HEAD_REF=$head_branch
+          fi
+          echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
+          
         else
-          echo "Error: Unable to determine PR number from the triggering event. Please check if the triggering event is a PR."
-          exit 1
+          echo "Warning: Triggering event '$triggering_event' is not explicitly handled. Attempting to proceed as commit run."
+          IS_COMMIT_RUN=true
+          PR_NUMBER=""
+          
+          # For other events, try to extract branch from head_branch
+          if [[ "$head_branch" == refs/heads/* ]]; then
+            GITHUB_HEAD_REF=$(echo $head_branch | sed 's/refs\/heads\///')
+          else
+            GITHUB_HEAD_REF=$head_branch
+          fi
+          echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         fi
 
-        #Getting the pr-number
-        echo PR_NUMBER: $PR_NUMBER
+        #Setting outputs
         echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
-        
-        #Getting the head-ref
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
-        echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo "github-head-ref=$GITHUB_HEAD_REF" >> $GITHUB_OUTPUT
+        echo "is-commit-run=$IS_COMMIT_RUN" >> $GITHUB_OUTPUT
+        
+        # Log the run type for clarity
+        if [[ "$IS_COMMIT_RUN" == "true" ]]; then
+          echo "🔨 Running Mobb analysis for COMMIT on branch: $GITHUB_HEAD_REF"
+          echo "📝 Commit SHA: $head_sha"
+        else
+          echo "🔀 Running Mobb analysis for PULL REQUEST #$PR_NUMBER"
+          echo "📝 Branch: $GITHUB_HEAD_REF, SHA: $head_sha"
+        fi
 
       shell: bash -l {0}
 
@@ -79,8 +119,9 @@ runs:
         ref: ${{ steps.env.outputs.github-head-ref }}
 
 
-    # Displays status in the PR that this action is in 'pending' status
+    # Displays status in the PR that this action is in 'pending' status (PR only)
     - uses: guibranco/github-status-action-v2@v1.1.13
+      if: steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Analysis"
@@ -98,16 +139,28 @@ runs:
         URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
         echo "analyses list URL=$URL"
         response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
-        echo length of code-scanning analyses list=$#{response}
+        echo length of code-scanning analyses list=${#response}
         echo "analyses list: $response"
-        # Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number
-        echo "Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number AND tool.name == CodeQL"
-        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select((.ref | test("^refs/pull/" + $pr + "/")) and (.tool.name == "CodeQL")) | .id')
+        
+        # Different filtering logic based on whether this is a PR or commit run
+        if [[ "${{ steps.env.outputs.is-commit-run }}" == "true" ]]; then
+          echo "Filtering CodeQL analyses for commit run - matching SHA: ${{steps.env.outputs.head-sha}}"
+          # For commit runs, filter by commit SHA
+          ids=$(echo "$response" | jq -r --arg sha "${{steps.env.outputs.head-sha}}" '.[] | select((.commit_sha == $sha) and (.tool.name == "CodeQL")) | .id')
+        else
+          echo "Filtering CodeQL analyses for PR run - matching refs/pull/${{ steps.env.outputs.pr-number }}/"
+          # For PR runs, filter by PR ref pattern
+          ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select((.ref | test("^refs/pull/" + $pr + "/")) and (.tool.name == "CodeQL")) | .id')
+        fi
   
         echo "Matching analyses ids=$ids"
         
         if [ -z "$ids" ]; then
-          echo "Error: No matching IDs found for the given head SHA ${{steps.env.outputs.head-sha}}." >&2
+          if [[ "${{ steps.env.outputs.is-commit-run }}" == "true" ]]; then
+            echo "Error: No matching CodeQL analyses found for commit SHA ${{steps.env.outputs.head-sha}}." >&2
+          else
+            echo "Error: No matching CodeQL analyses found for PR ${{ steps.env.outputs.pr-number }}." >&2
+          fi
           exit 1
         fi
 
@@ -160,14 +213,25 @@ runs:
         GITHUB_SHA=${{steps.env.outputs.head-sha}}
         PR_NUMBER=${{ steps.env.outputs.pr-number }}
         GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
-        
+        IS_COMMIT_RUN=${{ steps.env.outputs.is-commit-run }}
         
         echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
         echo REPO: $REPO
         echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
         echo GITHUB_SHA: $GITHUB_SHA
         echo PR_NUMBER: $PR_NUMBER
-        MobbExecString="npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER"
+        echo IS_COMMIT_RUN: $IS_COMMIT_RUN
+        
+        # Build the base Mobb command
+        MobbExecString="npx --yes mobbdev@latest review -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json --github-token ${{ inputs.github-token }} --scanner $SCANNER"
+        
+        # Add PR-specific parameters only if this is a PR run
+        if [[ "$IS_COMMIT_RUN" != "true" && -n "$PR_NUMBER" ]]; then
+          echo "Adding PR-specific parameters for PR #$PR_NUMBER"
+          MobbExecString+=" --pr $PR_NUMBER"
+        else
+          echo "Running in commit mode - no PR parameters added"
+        fi
         
         # Check if mobb-project-name exists and append it
         if [ -n "${{ inputs.mobb-project-name }}" ]; then
@@ -194,8 +258,9 @@ runs:
       env:
         PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
         
-    # Publish the Mobb fix report link in the PR
+    # Publish the Mobb fix report link in the PR (PR only)
     - uses: guibranco/github-status-action-v2@v1.1.13
+      if: steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Report Link"
@@ -205,21 +270,21 @@ runs:
         description: "Click \"Details\" to access the full fix analysis report" 
 
 
-    # Displays status in the PR that this action is in 'complete' status
+    # Displays status in the PR that this action is in 'complete' status (PR only)
     - uses: guibranco/github-status-action-v2@v1.1.13
-      if: success()
+      if: success() && steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Analysis"
         state: "success"
         target_url: ${{ steps.env.outputs.action-run-path }}
         sha: ${{steps.env.outputs.head-sha}}
-        description: "Mobb fix analysis completed. See comment in the PR for results" 
+        description: "Mobb fix analysis completed. See comment in the PR for results"
 
 
-    # Displays status in the PR that this action is in 'failure' status
+    # Displays status in the PR that this action is in 'failure' status (PR only)
     - uses: guibranco/github-status-action-v2@v1.1.13
-      if: failure()
+      if: failure() && steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Analysis"
