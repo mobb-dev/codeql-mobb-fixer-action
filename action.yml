@@ -222,15 +222,15 @@ runs:
         echo PR_NUMBER: $PR_NUMBER
         echo IS_COMMIT_RUN: $IS_COMMIT_RUN
         
-        # Build the base Mobb command
-        MobbExecString="npx --yes mobbdev@latest review -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json --github-token ${{ inputs.github-token }} --scanner $SCANNER"
-        
-        # Add PR-specific parameters only if this is a PR run
+        # Build the Mobb command based on run type
         if [[ "$IS_COMMIT_RUN" != "true" && -n "$PR_NUMBER" ]]; then
-          echo "Adding PR-specific parameters for PR #$PR_NUMBER"
-          MobbExecString+=" --pr $PR_NUMBER"
+          echo "Building PR review command for PR #$PR_NUMBER"
+          # For PR runs, use 'review' command with --scanner and --pr parameters
+          MobbExecString="npx --yes mobbdev@latest review -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json --github-token ${{ inputs.github-token }} --scanner $SCANNER --pr $PR_NUMBER"
         else
-          echo "Running in commit mode - no PR parameters added"
+          echo "Building commit analyze command - no PR parameters"
+          # For commit runs, use 'analyze' command without --scanner and --pr parameters
+          MobbExecString="npx --yes mobbdev@latest analyze -r $REPO --ref $GITHUB_HEAD_REF --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json"
         fi
         
         # Check if mobb-project-name exists and append it
