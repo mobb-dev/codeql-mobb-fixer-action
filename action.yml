@@ -20,7 +20,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v3.6.0
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 18
         
@@ -70,13 +70,13 @@ runs:
         REPO_API_URL: ${{ github.event.workflow_run.repository.url }}
 
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       with:
         ref: ${{ steps.env.outputs.github-head-ref }}
 
 
     # Displays status in the PR that this action is in 'pending' status
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Analysis"
@@ -141,7 +141,7 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         PR_NUMBER: ${{ steps.env.outputs.pr-number }}
         HEAD_SHA: ${{ steps.env.outputs.head-sha }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         # Name of the artifact to upload.
         # Optional. Default is 'artifact'
@@ -200,7 +200,7 @@ runs:
         MOBB_PROJECT_NAME: ${{ inputs.mobb-project-name }}
         
     # Publish the Mobb fix report link in the PR
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       with:
         authToken: ${{ inputs.github-token }}
         context: "Mobb Fix Report Link"
@@ -211,7 +211,7 @@ runs:
 
 
     # Displays status in the PR that this action is in 'complete' status
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: success()
       with:
         authToken: ${{ inputs.github-token }}
@@ -223,7 +223,7 @@ runs:
 
 
     # Displays status in the PR that this action is in 'failure' status
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: failure()
       with:
         authToken: ${{ inputs.github-token }}
