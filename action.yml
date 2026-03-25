@@ -25,53 +25,49 @@ runs:
         node-version: 18
         
     # This step extracts the Head SHA and stores it in the 'head-sha' variable                
-    - id: env 
+    - id: env
       name: Set Up Environment
       run: |
-        env
-
         # Getting the head-sha
-        head_sha=${{ github.event.workflow_run.head_sha }}
-        echo "head_sha=$head_sha"
-        echo "head-sha=$head_sha" >> $GITHUB_OUTPUT
-        
+        echo "head_sha=$HEAD_SHA"
+        echo "head-sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
         # Getting the action-run-path
-        RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
-        echo RUN_PATH: $RUN_PATH
-        echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
+        RUN_PATH="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        echo "RUN_PATH: $RUN_PATH"
+        echo "action-run-path=$RUN_PATH" >> "$GITHUB_OUTPUT"
 
-        triggering_event=${{ github.event.workflow_run.event }}
-        head_branch=${{ github.event.workflow_run.head_branch }}
+        echo "triggering_event=$TRIGGERING_EVENT"
+        echo "head_branch=$HEAD_BRANCH"
 
-        echo "triggering_event=$triggering_event"
-        echo "head_branch=$head_branch"
-
-        if [[ "$triggering_event" == "pull_request" ]]; then
+        if [[ "$TRIGGERING_EVENT" == "pull_request" ]]; then
           echo "Triggering event is a pull request, extracting PR Number from github.event.pull_request.number"
           PR_NUMBER=$(jq -r '.workflow_run.pull_requests[0].number' "$GITHUB_EVENT_PATH")
-
-
-          echo PR_NUMBER: $PR_NUMBER
-        elif [[ "$triggering_event" == "dynamic" && $head_branch == refs/pull/* ]]; then
+          echo "PR_NUMBER: $PR_NUMBER"
+        elif [[ "$TRIGGERING_EVENT" == "dynamic" && "$HEAD_BRANCH" == refs/pull/* ]]; then
           # Extract the PR number from the head_branch
-          echo "Triggering event is a dynamic event, head_branch also contains */pull/* field, extracting PR Number from github.event.workflow_run.head_branch"
-          PR_NUMBER=$(echo $head_branch | cut --delimiter='/' --fields=3 )
-          echo PR_NUMBER: $PR_NUMBER
+          echo "Triggering event is a dynamic event, extracting PR Number from head_branch"
+          PR_NUMBER=$(echo "$HEAD_BRANCH" | cut --delimiter='/' --fields=3)
+          echo "PR_NUMBER: $PR_NUMBER"
         else
           echo "Error: Unable to determine PR number from the triggering event. Please check if the triggering event is a PR."
           exit 1
         fi
 
-        #Getting the pr-number
-        echo PR_NUMBER: $PR_NUMBER
-        echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
-        
-        #Getting the head-ref
-        GITHUB_HEAD_REF=$(curl --header 'authorization: Bearer ${{ inputs.github-token }}' -s ${{github.event.workflow_run.repository.url}}/pulls/${PR_NUMBER} | jq -r '.head.ref')
-        echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
-        echo "github-head-ref=$GITHUB_HEAD_REF" >> $GITHUB_OUTPUT
+        echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
-      shell: bash -l {0}
+        # Getting the head-ref
+        GITHUB_HEAD_REF=$(curl --header "authorization: Bearer $GH_TOKEN" -s "$REPO_API_URL/pulls/${PR_NUMBER}" | jq -r '.head.ref')
+        echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
+        echo "github-head-ref=$GITHUB_HEAD_REF" >> "$GITHUB_OUTPUT"
+
+      shell: bash
+      env:
+        HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        TRIGGERING_EVENT: ${{ github.event.workflow_run.event }}
+        HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO_API_URL: ${{ github.event.workflow_run.repository.url }}
 
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -93,56 +89,58 @@ runs:
         
     - id: run-codeql-generate-report
       name: CodeQL Generate Report
-      run: |    
+      run: |
         # Check all available CodeQL analyses
-        URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
+        URL="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses"
         echo "analyses list URL=$URL"
-        response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
-        echo length of code-scanning analyses list=$#{response}
+        response=$(curl -H "Authorization: Bearer $GH_TOKEN" "$URL")
+        echo "length of code-scanning analyses list=${#response}"
         echo "analyses list: $response"
         # Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number
         echo "Extract all CodeQL Analyses IDs that has a matching ^refs/pull/ to the PR Number"
-        ids=$(echo "$response" | jq -r --arg pr "${{ steps.env.outputs.pr-number }}" '.[] | select(.ref | test("^refs/pull/" + $pr + "/")) | .id')
+        ids=$(echo "$response" | jq -r --arg pr "$PR_NUMBER" '.[] | select(.ref | test("^refs/pull/" + $pr + "/")) | .id')
 
         echo "Matching analyses ids=$ids"
-        
+
         if [ -z "$ids" ]; then
-          echo "Error: No matching IDs found for the given head SHA ${{steps.env.outputs.head-sha}}." >&2
+          echo "Error: No matching IDs found for the given head SHA $HEAD_SHA." >&2
           exit 1
         fi
 
-        echo Initialize sarif_output.json with the base structure
+        echo "Initialize sarif_output.json with the base structure"
         echo '{
           "runs": [],
           "version": "2.1.0"
         }' > sarif_output.json
         cat sarif_output.json
-        
+
         # Loop through each ID
         for id in $ids; do
           echo "Found Analysis ID: $id"
-        
+
           # Fetch the SARIF response
-          sarif_response=$(curl -s -H "Authorization: Bearer ${{ inputs.github-token }}" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
-          echo length of sarif_response=${#sarif_response}
-          # echo sarif content:
-          # echo $sarif_response | jq '.'
+          sarif_response=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
+          echo "length of sarif_response=${#sarif_response}"
 
           # Save the response to a temporary file
           echo "$sarif_response" > current_sarif.json
-          
+
           # Combine the current sarif_output.json with the new SARIF response
           jq -s '{"version": "2.1.0", "runs": (.[0].runs + .[1].runs)}' sarif_output.json current_sarif.json > temp_sarif_output.json
-        
+
           # Move the temporary file to sarif_output.json
           mv temp_sarif_output.json sarif_output.json
-          echo sarif_output.json size=$(stat -c%s sarif_output.json)
+          echo "sarif_output.json size=$(stat -c%s sarif_output.json)"
         done
 
         # Print directory
         ls -l
 
-      shell: bash -l {0}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ steps.env.outputs.pr-number }}
+        HEAD_SHA: ${{ steps.env.outputs.head-sha }}
     - uses: actions/upload-artifact@v4
       with:
         # Name of the artifact to upload.
@@ -153,46 +151,53 @@ runs:
     - id: run-npx-mobb-dev
       name: Mobb - Generate Autofix
       run: |
-      
         REPO=$(git remote get-url origin)
         REPO=${REPO%".git"}
-        SCANNER=codeql
-        GITHUB_SHA=${{steps.env.outputs.head-sha}}
-        PR_NUMBER=${{ steps.env.outputs.pr-number }}
-        GITHUB_HEAD_REF=${{ steps.env.outputs.github-head-ref }}
-        
-        
-        echo "github.event.workflow_run.head_branch = "${{github.event.workflow_run.head_branch}}
-        echo REPO: $REPO
-        echo GITHUB_HEAD_REF: $GITHUB_HEAD_REF
-        echo GITHUB_SHA: $GITHUB_SHA
-        echo PR_NUMBER: $PR_NUMBER
-        MobbExecString="npx --yes mobbdev@latest review  -r $REPO --ref $GITHUB_HEAD_REF --ch $GITHUB_SHA --api-key ${{ inputs.mobb-api-token }} -f sarif_output.json  --pr $PR_NUMBER --github-token ${{ inputs.github-token }} --scanner $SCANNER"
-        
+
+        echo "REPO: $REPO"
+        echo "GITHUB_HEAD_REF: $MOBB_HEAD_REF"
+        echo "GITHUB_SHA: $MOBB_HEAD_SHA"
+        echo "PR_NUMBER: $MOBB_PR_NUMBER"
+
+        MOBB_ARGS=(
+          npx --yes mobbdev@latest review
+          -r "$REPO"
+          --ref "$MOBB_HEAD_REF"
+          --ch "$MOBB_HEAD_SHA"
+          --api-key "$MOBB_API_TOKEN"
+          -f sarif_output.json
+          --pr "$MOBB_PR_NUMBER"
+          --github-token "$GH_TOKEN"
+          --scanner codeql
+        )
+
         # Check if mobb-project-name exists and append it
-        if [ -n "${{ inputs.mobb-project-name }}" ]; then
-          echo "mobb-project-name specified: ${{ inputs.mobb-project-name }}"
-          MobbExecString+=" --mobb-project-name \"${{ inputs.mobb-project-name }}\""
+        if [ -n "$MOBB_PROJECT_NAME" ]; then
+          echo "mobb-project-name specified: $MOBB_PROJECT_NAME"
+          MOBB_ARGS+=(--mobb-project-name "$MOBB_PROJECT_NAME")
         fi
-        
-        # Output the final command string for debugging
-        echo "Mobb Command: $MobbExecString"
-        OUT=$(eval $MobbExecString)
-        
+
+        OUT=$("${MOBB_ARGS[@]}")
+
         # Check for errors
         RETVAL=$?
         if [ $RETVAL -ne 0 ]; then
           exit $RETVAL
         fi
-        
+
         # Process the output
-        OUT=$(echo $OUT | tr '\n' ' ')
-        echo "fix-report-url=$OUT" >> $GITHUB_OUTPUT
+        OUT=$(echo "$OUT" | tr '\n' ' ')
+        echo "fix-report-url=$OUT" >> "$GITHUB_OUTPUT"
         echo "Mobb URL: $OUT"
 
-      shell: bash -l {0}
+      shell: bash
       env:
-        PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
+        MOBB_HEAD_SHA: ${{ steps.env.outputs.head-sha }}
+        MOBB_PR_NUMBER: ${{ steps.env.outputs.pr-number }}
+        MOBB_HEAD_REF: ${{ steps.env.outputs.github-head-ref }}
+        MOBB_API_TOKEN: ${{ inputs.mobb-api-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        MOBB_PROJECT_NAME: ${{ inputs.mobb-project-name }}
         
     # Publish the Mobb fix report link in the PR
     - uses: guibranco/github-status-action-v2@v1.1.13
