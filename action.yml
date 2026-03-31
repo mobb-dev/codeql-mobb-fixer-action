@@ -23,31 +23,25 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v3.6.0
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 18
         
     # This step extracts the Head SHA and stores it in the 'head-sha' variable                
-    - id: env 
+    - id: env
       name: Set Up Environment
       run: |
-        env
-
         # Getting the head-sha
-        head_sha=${{ github.event.workflow_run.head_sha }}
-        echo "head_sha=$head_sha"
-        echo "head-sha=$head_sha" >> $GITHUB_OUTPUT
-        
+        echo "head_sha=$HEAD_SHA"
+        echo "head-sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
         # Getting the action-run-path
-        RUN_PATH=$GITHUB_SERVER_URL"/"$GITHUB_REPOSITORY"/actions/runs/"$GITHUB_RUN_ID
-        echo RUN_PATH: $RUN_PATH
-        echo "action-run-path=$RUN_PATH" >> $GITHUB_OUTPUT
+        RUN_PATH="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        echo "RUN_PATH: $RUN_PATH"
+        echo "action-run-path=$RUN_PATH" >> "$GITHUB_OUTPUT"
 
-        triggering_event=${{ github.event.workflow_run.event }}
-        head_branch=${{ github.event.workflow_run.head_branch }}
-
-        echo "triggering_event=$triggering_event"
-        echo "head_branch=$head_branch"
+        echo "triggering_event=$TRIGGERING_EVENT"
+        echo "head_branch=$HEAD_BRANCH"
 
         # Initialize variables
         PR_NUMBER=""
@@ -114,16 +108,22 @@ runs:
           echo "📝 Branch: $GITHUB_HEAD_REF, SHA: $head_sha"
         fi
 
-      shell: bash -l {0}
+      shell: bash
+      env:
+        HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        TRIGGERING_EVENT: ${{ github.event.workflow_run.event }}
+        HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO_API_URL: ${{ github.event.workflow_run.repository.url }}
 
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       with:
         ref: ${{ steps.env.outputs.github-head-ref }}
 
 
     # Displays status in the PR that this action is in 'pending' status (PR only)
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
@@ -137,9 +137,9 @@ runs:
         
     - id: run-codeql-generate-report
       name: CodeQL Generate Report
-      run: |    
+      run: |
         # Check all available CodeQL analyses
-        URL=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses
+        URL="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses"
         echo "analyses list URL=$URL"
         response=$(curl -H "Authorization: Bearer ${{ inputs.github-token }}" $URL)
         echo length of code-scanning analyses list=${#response}
@@ -157,7 +157,7 @@ runs:
         fi
   
         echo "Matching analyses ids=$ids"
-        
+
         if [ -z "$ids" ]; then
           if [[ "${{ steps.env.outputs.is-commit-run }}" == "true" ]]; then
             echo "Error: No matching CodeQL analyses found for commit SHA ${{steps.env.outputs.head-sha}}." >&2
@@ -167,39 +167,41 @@ runs:
           exit 1
         fi
 
-        echo Initialize sarif_output.json with the base structure
+        echo "Initialize sarif_output.json with the base structure"
         echo '{
           "runs": [],
           "version": "2.1.0"
         }' > sarif_output.json
         cat sarif_output.json
-        
+
         # Loop through each ID
         for id in $ids; do
           echo "Found Analysis ID: $id"
-        
+
           # Fetch the SARIF response
-          sarif_response=$(curl -s -H "Authorization: Bearer ${{ inputs.github-token }}" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
-          echo length of sarif_response=${#sarif_response}
-          # echo sarif content:
-          # echo $sarif_response | jq '.'
+          sarif_response=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/sarif+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id")
+          echo "length of sarif_response=${#sarif_response}"
 
           # Save the response to a temporary file
           echo "$sarif_response" > current_sarif.json
-          
+
           # Combine the current sarif_output.json with the new SARIF response
           jq -s '{"version": "2.1.0", "runs": (.[0].runs + .[1].runs)}' sarif_output.json current_sarif.json > temp_sarif_output.json
-        
+
           # Move the temporary file to sarif_output.json
           mv temp_sarif_output.json sarif_output.json
-          echo sarif_output.json size=$(stat -c%s sarif_output.json)
+          echo "sarif_output.json size=$(stat -c%s sarif_output.json)"
         done
 
         # Print directory
         ls -l
 
-      shell: bash -l {0}
-    - uses: actions/upload-artifact@v4
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ steps.env.outputs.pr-number }}
+        HEAD_SHA: ${{ steps.env.outputs.head-sha }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         # Name of the artifact to upload.
         # Optional. Default is 'artifact'
@@ -209,7 +211,6 @@ runs:
     - id: run-npx-mobb-dev
       name: Mobb - Generate Autofix
       run: |
-      
         REPO=$(git remote get-url origin)
         REPO=${REPO%".git"}
         SCANNER=codeql
@@ -237,9 +238,9 @@ runs:
         fi
         
         # Check if mobb-project-name exists and append it
-        if [ -n "${{ inputs.mobb-project-name }}" ]; then
-          echo "mobb-project-name specified: ${{ inputs.mobb-project-name }}"
-          MobbExecString+=" --mobb-project-name \"${{ inputs.mobb-project-name }}\""
+        if [ -n "$MOBB_PROJECT_NAME" ]; then
+          echo "mobb-project-name specified: $MOBB_PROJECT_NAME"
+          MOBB_ARGS+=(--mobb-project-name "$MOBB_PROJECT_NAME")
         fi
         
         # Check if organization-id exists and append it
@@ -264,12 +265,17 @@ runs:
         echo "fix-report-url=$MOBB_URL" >> $GITHUB_OUTPUT
         echo "Mobb URL: $MOBB_URL"
 
-      shell: bash -l {0}
+      shell: bash
       env:
-        PR_CONTEXT: ${{ toJson(github.event.workflow_run.pull_requests) }}
+        MOBB_HEAD_SHA: ${{ steps.env.outputs.head-sha }}
+        MOBB_PR_NUMBER: ${{ steps.env.outputs.pr-number }}
+        MOBB_HEAD_REF: ${{ steps.env.outputs.github-head-ref }}
+        MOBB_API_TOKEN: ${{ inputs.mobb-api-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        MOBB_PROJECT_NAME: ${{ inputs.mobb-project-name }}
         
-    # Publish the Mobb fix report link in the PR (PR only)
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    # Publish the Mobb fix report link in the PR
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
@@ -280,8 +286,8 @@ runs:
         description: "Click \"Details\" to access the full fix analysis report" 
 
 
-    # Displays status in the PR that this action is in 'complete' status (PR only)
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    # Displays status in the PR that this action is in 'complete' status
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: success() && steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
@@ -292,8 +298,8 @@ runs:
         description: "Mobb fix analysis completed. See comment in the PR for results"
 
 
-    # Displays status in the PR that this action is in 'failure' status (PR only)
-    - uses: guibranco/github-status-action-v2@v1.1.13
+    # Displays status in the PR that this action is in 'failure' status
+    - uses: guibranco/github-status-action-v2@0849440ec82c5fa69b2377725b9b7852a3977e76 # v1.1.13
       if: failure() && steps.env.outputs.is-commit-run != 'true'
       with:
         authToken: ${{ inputs.github-token }}
